@@ -1,0 +1,140 @@
+---
+title: ""
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+```{r setup, include=FALSE}
+## Global options
+knitr::opts_chunk$set(cache = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(here)
+library(ggplot2)
+```
+#Problem 1
+
+Let us return to the LadyBugs dataset from our previous activity. Recal, in 1983 an article was published about ladybird beetles and their behavior changes under different temperature conditions (N. H. Copp. Animal Behavior, 31,:424-430). An experiment was run to see how many beetles stayed in light as temperature changed.
+
+1.Read in the LadyBugs.csv data file into R.
+
+```{r}
+data <- read.csv(here("Data", "LadyBugs.csv"))
+```
+
+2.Fit three polynomial regression models (of order at least 2, but you choose) to these data.
+
+```{r}
+lin_reg_spec <- linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+lin_reg_spec
+```
+
+```{r}
+datamodel1 <- lm(Lighted ~ poly(Temp, 2), data = data)
+summary(datamodel1)
+
+datamodel2 <- lm(Lighted ~ poly(Temp, 3), data = data)
+summary(datamodel2)
+
+datamodel3 <- lm(Lighted ~ poly(Temp, 4), data = data)
+summary(datamodel3)
+```
+
+3.Plot all of your models from (2) on top of the data in a new graph.
+
+```{r}
+data %>% 
+  ggplot(aes(x= data$Temp, y=data$Lighted)) +
+  geom_point() +
+  geom_smooth(method ='lm', formula=y ~ poly(x, 2), se = F, color = 'blue') +
+  geom_smooth(method ='lm', formula=y ~ poly(x, 3), se = F, color = 'red') +
+  geom_smooth(method ='lm', formula=y ~ poly(x, 4), se = F, color = 'green')
+```
+
+
+4.Perform k-fold cross-validation with all three of your above models, using k = 5. For each, compute the cross-validation estimate of the test error and the R-squared value. Which model appears best and why?
+
+```{r}
+data_cvs <- vfold_cv(data, n=5)
+data_cvs 
+```
+
+```{r}
+poly_1_cv <- lin_reg_spec %>%
+  fit_resamples(Lighted ~ poly(Temp,2),
+resamples = data_cvs)
+
+poly_2_cv <- lin_reg_spec %>%
+  fit_resamples(Lighted ~ poly(Temp,3),
+resamples = data_cvs)
+
+poly_3_cv <- lin_reg_spec %>% 
+  fit_resamples(Lighted ~ poly(Temp,4), resample = data_cvs)
+```
+
+```{r}
+poly_1_cv %>% collect_metrics()
+poly_2_cv %>% collect_metrics()
+poly_3_cv %>% collect_metrics()
+```
+
+- Model 3 appears to be the best since it has the lowest average RMSE and highest average RSQ values
+
+5.Repeat (4) for k = n (leave-one-out) and k = 10. Are your conclusions the same? How do the results for the different values of k compare to each other?
+
+```{r}
+data_cvs_n <- vfold_cv(data, n=n)
+data_cvs_10 <- vfold_cv(data, n=10)
+```
+
+```{r}
+poly_1_cv_n <- lin_reg_spec %>%
+  fit_resamples(Lighted ~ poly(Temp,2),
+resamples = data_cvs_n)
+
+poly_2_cv_n <- lin_reg_spec %>%
+  fit_resamples(Lighted ~ poly(Temp,3),
+resamples = data_cvs_n)
+
+poly_3_cv_n <- lin_reg_spec %>% 
+  fit_resamples(Lighted ~ poly(Temp,4), resample = data_cvs_n)
+
+
+poly_1_cv_10 <- lin_reg_spec %>%
+  fit_resamples(Lighted ~ poly(Temp,2),
+resamples = data_cvs_10)
+
+poly_2_cv_10 <- lin_reg_spec %>%
+  fit_resamples(Lighted ~ poly(Temp,3),
+resamples = data_cvs_10)
+
+poly_3_cv_10 <- lin_reg_spec %>% 
+  fit_resamples(Lighted ~ poly(Temp,4), resample = data_cvs_10)
+```
+
+```{r}
+poly_1_cv_n %>% collect_metrics()
+poly_2_cv_n %>% collect_metrics()
+poly_3_cv_n %>% collect_metrics()
+```
+
+- For n=n folds, model 3 has the lowest average RMSE but model 2 has the highest average RSQE
+
+```{r}
+poly_1_cv_10 %>% collect_metrics()
+poly_2_cv_10 %>% collect_metrics()
+poly_3_cv_10 %>% collect_metrics()
+```
+
+For n=10 folds, model 3 has the lowest average RMSE but model 2 has the highest average RSQE
+
+6.The smallest value of k (in cross-validation) is 2; the largest value is n. Explain the strengths and weaknesses of using smaller values of k versus larger values of k.
+
+- A lower value of k in cross validation means that the model is being tested on a larger value of testing data set. This can potentially lead to higher value of prediction error. A larger value of R means that there is a lower value of testing data set. However, this can lead to over fitting of the model over a large training dataset.
